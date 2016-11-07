@@ -54,6 +54,9 @@ import {InvalidPipeArgumentError} from './invalid_pipe_argument_error';
  *
  * Timezone of the formatted text will be the local system timezone of the end-user's machine.
  *
+ * When the expression is a ISO string without time (e.g. 2016-09-19) the time zone offset is not
+ * applied and the formatted text will have the same day, month and year of the expression.
+ *
  * WARNINGS:
  * - this pipe is marked as pure hence it will not be re-evaluated when the input is mutated.
  *   Instead users should treat the date as an immutable object and change the reference when the
@@ -103,10 +106,37 @@ export class DatePipe implements PipeTransform {
 
     if (NumberWrapper.isNumeric(value)) {
       value = parseFloat(value);
+    } else if (this.isIsoStringWithoutTime(value)) {
+      value = this.isoStringToDateObject(value);
     }
 
     return DateFormatter.format(
         new Date(value), this._locale, DatePipe._ALIASES[pattern] || pattern);
+  }
+
+  /**
+  * Check if a string is a valid ISO-8601 date with no time (e.g. 2015-01-31)
+  */
+  private isIsoStringWithoutTime(obj: string): boolean {
+    return /^(\d{4}-\d{1,2}-\d{1,2})$/.test(obj);
+  }
+
+  /**
+  * Get an ISO String and returns a JS Date Object
+  * The day, month and year must be extracted from the ISO String before Date creation because
+  * ISO-8601 date parsing was added only in ES5, so not all browsers support it.
+  */
+  private isoStringToDateObject(value: string): Date {
+    let dateSplit = this.splitIsoStringWithoutTime(value);
+    return new Date(dateSplit[0], dateSplit[1] - 1, dateSplit[2]);
+  }
+
+  // Extract year, month and day from a ISO String
+  private splitIsoStringWithoutTime(value: string): number[] {
+    return [
+      parseInt(value.substr(0, 4), 10), parseInt(value.substr(5, 2), 10),
+      parseInt(value.substr(8, 2), 10)
+    ]
   }
 
   private supports(obj: any): boolean {
